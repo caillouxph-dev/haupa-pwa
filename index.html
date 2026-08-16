@@ -1264,7 +1264,11 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après :
     }
 
     const data = await res.json();
-    const text = data.content?.[0]?.text || '';
+    const textBlock = (data.content || []).find(b => b.type === 'text');
+    const text = textBlock?.text || '';
+    if(!text){
+      console.error('[Claude Vision] Aucun bloc texte trouvé dans la réponse. Blocs reçus:', (data.content||[]).map(b=>b.type), '| stop_reason:', data.stop_reason, '| réponse complète:', data);
+    }
     if(data.stop_reason === 'max_tokens'){
       console.warn('[Claude Vision] Réponse tronquée (max_tokens atteint) — augmenter max_tokens si le problème persiste.');
     }

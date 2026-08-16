@@ -1253,7 +1253,7 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après :
       },
       body: JSON.stringify({
         model: 'claude-sonnet-5',
-        max_tokens: 4000,
+        max_tokens: 8000,
         messages
       })
     });
@@ -1265,12 +1265,18 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après :
 
     const data = await res.json();
     const text = data.content?.[0]?.text || '';
+    if(data.stop_reason === 'max_tokens'){
+      console.warn('[Claude Vision] Réponse tronquée (max_tokens atteint) — augmenter max_tokens si le problème persiste.');
+    }
 
     setLoadingMsg('Traitement des résultats…');
 
     // Parser le JSON
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if(!jsonMatch) throw new Error('Réponse Claude invalide — impossible de parser le JSON');
+    if(!jsonMatch) {
+      console.error('[Claude Vision] Réponse brute reçue (pas de JSON trouvé):', text);
+      throw new Error('Réponse Claude invalide — impossible de parser le JSON (voir console pour le détail)');
+    }
 
     const result = JSON.parse(jsonMatch[0]);
     const arrets = result.arrets || [];

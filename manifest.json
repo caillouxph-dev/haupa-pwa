@@ -1,0 +1,10 @@
+{
+  "name": "Tournée Haupa",
+  "short_name": "Haupa",
+  "description": "Optimisation de tournée collecte huile",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0f1117",
+  "theme_color": "#F59E0B",
+  "orientation": "portrait"
+}

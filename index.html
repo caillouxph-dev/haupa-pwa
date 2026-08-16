@@ -1,0 +1,1942 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#F59E0B">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Haupa Tournée">
+<title>Tournée Haupa</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1117;
+    --bg2: #181c27;
+    --bg3: #1e2334;
+    --amber: #F59E0B;
+    --amber-dim: #92600a;
+    --amber-light: #FDE68A;
+    --green: #10B981;
+    --green-dim: #064e3b;
+    --red: #EF4444;
+    --text: #F1F5F9;
+    --text2: #94A3B8;
+    --text3: #475569;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --radius: 14px;
+    --radius-sm: 8px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bot: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: -apple-system, 'Helvetica Neue', sans-serif; }
+
+  /* ── HEADER ── */
+  #header {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    padding: calc(var(--safe-top) + 14px) 16px 14px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  #header-left { display: flex; align-items: center; gap: 10px; }
+  #header-logo {
+    width: 34px; height: 34px; border-radius: 8px;
+    background: var(--amber); display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  #header-title { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
+  #header-date { font-size: 12px; color: var(--text2); margin-top: 1px; }
+  #btn-refresh {
+    width: 36px; height: 36px; border-radius: 10px;
+    border: 1px solid var(--border2); background: var(--bg2);
+    color: var(--text2); font-size: 18px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  #btn-refresh:active { background: var(--bg3); }
+  #btn-refresh.spinning { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── STATS BAR ── */
+  #stats-bar {
+    position: fixed; top: calc(var(--safe-top) + 63px); left: 0; right: 0; z-index: 99;
+    padding: 10px 16px;
+    background: var(--bg);
+    display: flex; gap: 8px;
+  }
+  .stat-chip {
+    flex: 1; background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 8px 10px;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+  }
+  .stat-chip .val { font-size: 18px; font-weight: 700; }
+  .stat-chip .lbl { font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-chip.amber .val { color: var(--amber); }
+  .stat-chip.green .val { color: var(--green); }
+
+  /* ── SCROLL AREA ── */
+  #scroll {
+    position: fixed;
+    top: calc(var(--safe-top) + 63px + 70px);
+    bottom: calc(var(--safe-bot) + 60px);
+    left: 0; right: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 8px 12px 16px;
+  }
+
+  /* ── ÉTAT ── */
+  #state-screen {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 100%; gap: 16px; text-align: center; padding: 24px;
+  }
+  #state-icon { font-size: 52px; }
+  #state-msg { font-size: 16px; color: var(--text2); line-height: 1.5; }
+  #btn-start {
+    margin-top: 8px; padding: 14px 32px;
+    background: var(--amber); color: #0f1117;
+    border: none; border-radius: 50px;
+    font-size: 16px; font-weight: 700; cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  #btn-start:active { opacity: 0.85; }
+
+  /* ── CARTE ARRÊT ── */
+  .stop-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); margin-bottom: 8px;
+    overflow: hidden; transition: border-color 0.2s;
+    position: relative;
+  }
+  .stop-card.done { border-color: var(--green-dim); opacity: 0.75; }
+  .stop-card.current { border-color: var(--amber); }
+
+  .stop-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 13px 14px 10px;
+  }
+  .stop-num {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--bg3); border: 1px solid var(--border2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; color: var(--text2);
+    flex-shrink: 0;
+  }
+  .stop-card.current .stop-num { background: var(--amber); color: #0f1117; border-color: var(--amber); }
+  .stop-card.done .stop-num { background: var(--green-dim); color: var(--green); border-color: var(--green-dim); }
+
+  .stop-info { flex: 1; min-width: 0; }
+  .stop-nom { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stop-card.done .stop-nom { text-decoration: line-through; color: var(--text2); }
+  .stop-addr { font-size: 12px; color: var(--text2); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stop-km {
+    font-size: 11px; color: var(--amber); font-weight: 600;
+    background: rgba(245,158,11,0.12); padding: 3px 8px; border-radius: 20px;
+    flex-shrink: 0;
+  }
+  .stop-card.done .stop-km { color: var(--text3); background: var(--bg3); }
+
+  .stop-tel {
+    padding: 0 14px 4px 56px;
+    font-size: 12px; color: var(--text2);
+  }
+
+  .stop-actions {
+    display: flex; gap: 0; border-top: 1px solid var(--border);
+  }
+  .btn-nav, .btn-done, .btn-undo {
+    flex: 1; padding: 11px 8px;
+    border: none; background: transparent; cursor: pointer;
+    font-size: 13px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+    transition: background 0.15s;
+  }
+  .btn-nav { color: var(--amber); border-right: 1px solid var(--border); }
+  .btn-nav:active { background: rgba(245,158,11,0.1); }
+  .btn-done { color: var(--green); }
+  .btn-done:active { background: rgba(16,185,129,0.1); }
+  .btn-undo { color: var(--text2); }
+  .btn-undo:active { background: var(--bg3); }
+
+  /* ── DÉPÔT CARD ── */
+  .depot-card {
+    background: rgba(245,158,11,0.07); border: 1px solid rgba(245,158,11,0.25);
+    border-radius: var(--radius); padding: 12px 14px; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .depot-icon { font-size: 22px; }
+  .depot-txt { flex: 1; }
+  .depot-label { font-size: 11px; color: var(--amber); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; }
+  .depot-name { font-size: 14px; font-weight: 600; margin-top: 1px; }
+  .depot-addr { font-size: 12px; color: var(--text2); margin-top: 1px; }
+
+  /* ── MAPS BUTTON ── */
+  #btn-gmaps {
+    position: fixed; bottom: calc(var(--safe-bot) + 68px); right: 14px;
+    width: 52px; height: 52px; border-radius: 50%;
+    background: var(--amber); border: none; cursor: pointer;
+    font-size: 22px; color: #0f1117;
+    display: none; align-items: center; justify-content: center;
+    box-shadow: 0 4px 16px rgba(245,158,11,0.4);
+    z-index: 200;
+  }
+
+  /* ── BOTTOM NAV ── */
+  #bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+    height: calc(60px + var(--safe-bot));
+    padding-bottom: var(--safe-bot);
+    background: var(--bg); border-top: 1px solid var(--border);
+    display: flex; align-items: center;
+  }
+  .nav-btn {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    gap: 3px; background: none; border: none; cursor: pointer;
+    color: var(--text3); font-size: 10px; padding: 8px 0;
+    transition: color 0.15s;
+  }
+  .nav-btn .nav-icon { font-size: 20px; }
+  .nav-btn.active { color: var(--amber); }
+
+  /* ── SECTION RÉSUMÉ ── */
+  #section-summary { display: none; }
+  #section-summary .summary-header {
+    font-size: 13px; color: var(--text2); margin-bottom: 10px;
+    text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;
+  }
+  .summary-row {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 6px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .summary-name { font-size: 14px; font-weight: 500; }
+  .summary-badge {
+    font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px;
+  }
+  .badge-done { background: var(--green-dim); color: var(--green); }
+  .badge-todo { background: var(--bg3); color: var(--text2); }
+
+  .summary-link {
+    margin-top: 14px; background: var(--amber); color: #0f1117;
+    border: none; border-radius: 50px; padding: 14px;
+    font-size: 15px; font-weight: 700; cursor: pointer; width: 100%;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    text-decoration: none;
+  }
+
+  /* ── LOADING SPINNER ── */
+  .loader {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 3px solid var(--border2); border-top-color: var(--amber);
+    animation: spin 0.7s linear infinite; margin: 0 auto;
+  }
+
+  /* ── SECTION SETTINGS ── */
+  #section-settings { display: none; }
+  .setting-group { margin-bottom: 20px; }
+  .setting-group-title {
+    font-size: 11px; color: var(--text2); text-transform: uppercase;
+    letter-spacing: 0.6px; font-weight: 600; margin-bottom: 8px;
+    padding-left: 4px;
+  }
+  .setting-row {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 2px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .setting-label { font-size: 14px; flex: 1; }
+  .setting-input {
+    background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: 6px; color: var(--text); font-size: 13px;
+    padding: 6px 10px; width: 140px; outline: none;
+  }
+  .setting-input:focus { border-color: var(--amber); }
+  .btn-save-settings {
+    margin-top: 10px; width: 100%; padding: 14px;
+    background: var(--amber); color: #0f1117; border: none;
+    border-radius: 50px; font-size: 15px; font-weight: 700; cursor: pointer;
+  }
+  .toast {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+    background: var(--green); color: #fff; padding: 10px 20px;
+    border-radius: 50px; font-size: 14px; font-weight: 600;
+    opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999;
+  }
+  .toast.show { opacity: 1; }
+
+
+
+/* ÉTAPES */
+.step{margin-bottom:16px}
+.step-title{font-size:11px;color:var(--amber);text-transform:uppercase;letter-spacing:0.6px;font-weight:600;margin-bottom:8px;padding-left:2px}
+
+/* PHOTOS */
+.photos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.photo-thumb{position:relative;aspect-ratio:3/4;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-sm);overflow:hidden;cursor:pointer}
+.photo-thumb img{width:100%;height:100%;object-fit:cover}
+.photo-thumb .del{position:absolute;top:4px;right:4px;width:22px;height:22px;background:rgba(239,68,68,0.9);border-radius:50%;border:none;color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.photo-thumb .num{position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.7);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px}
+.add-photo{aspect-ratio:3/4;background:var(--bg2);border:2px dashed var(--border2);border-radius:var(--radius-sm);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:border-color 0.2s}
+.add-photo:active{border-color:var(--amber)}
+.add-photo .icon{font-size:28px}
+.add-photo .txt{font-size:11px;color:var(--text2);text-align:center;padding:0 4px}
+
+/* OPTION PÉAGES */
+.option-row{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.option-label{font-size:14px;font-weight:500}
+.option-sub{font-size:12px;color:var(--text2);margin-top:2px}
+.toggle{width:44px;height:24px;background:var(--bg3);border-radius:12px;border:none;cursor:pointer;position:relative;transition:background 0.2s;flex-shrink:0}
+.toggle.on{background:var(--amber)}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:transform 0.2s}
+.toggle.on::after{transform:translateX(20px)}
+
+/* BOUTON ANALYSER */
+.btn-analyser{width:100%;padding:15px;background:var(--amber);color:#0f1117;border:none;border-radius:50px;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:12px;transition:opacity 0.15s}
+.btn-analyser:disabled{opacity:0.4;cursor:not-allowed}
+.btn-analyser:active:not(:disabled){opacity:0.85}
+
+/* LOADING */
+#loading{display:none;text-align:center;padding:24px;background:var(--bg2);border-radius:var(--radius);margin-bottom:12px}
+#loading-msg{font-size:14px;color:var(--text2)}
+
+/* RÉSULTATS */
+#results{display:none}
+.results-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.results-title{font-size:15px;font-weight:700}
+.results-count{font-size:13px;color:var(--amber);font-weight:600}
+
+.mf-stop-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;overflow:hidden}
+.mf-stop-card-header{display:flex;align-items:center;gap:10px;padding:12px 14px 8px}
+.mf-stop-num{width:28px;height:28px;border-radius:50%;background:var(--amber);color:#0f1117;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.stop-body{flex:1;min-width:0}
+.mf-stop-nom{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mf-stop-addr{font-size:12px;color:var(--text2);margin-top:2px}
+.mf-stop-tel{font-size:12px;color:var(--text2);padding:0 14px 6px 52px}
+.stop-contenants{display:flex;flex-wrap:wrap;gap:4px;padding:0 14px 10px 52px}
+.badge-contenant{font-size:10px;font-weight:600;padding:3px 8px;border-radius:20px;background:rgba(245,158,11,0.15);color:var(--amber);border:1px solid rgba(245,158,11,0.3)}
+.stop-del{background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:4px;flex-shrink:0}
+
+/* CARTE LEAFLET */
+#carte-container{display:none;margin-bottom:12px}
+#carte{width:100%;height:420px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border)}
+.carte-legende{display:flex;gap:12px;padding:8px 0;font-size:12px;color:var(--text2)}
+.legende-item{display:flex;align-items:center;gap:4px}
+.legende-dot{width:12px;height:12px;border-radius:50%}
+
+/* MAPS */
+#maps-section{display:none;margin-top:8px}
+.maps-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:8px}
+.maps-card-header{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.maps-card-icon{font-size:18px}
+.maps-card-title{font-size:14px;font-weight:600}
+.maps-link{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--border);text-decoration:none;color:var(--text);transition:background 0.15s}
+.maps-link:last-child{border-bottom:none}
+.maps-link:active{background:var(--bg3)}
+.maps-link-label{font-size:13px}
+.maps-link-arrow{font-size:18px;color:var(--text2)}
+
+/* BOUTONS BAS */
+.btn-row{display:flex;gap:8px;margin-top:4px}
+.btn-secondary{flex:1;padding:13px;background:transparent;color:var(--text2);border:1px solid var(--border2);border-radius:50px;font-size:14px;font-weight:600;cursor:pointer}
+.btn-primary{flex:2;padding:13px;background:var(--green);color:#fff;border:none;border-radius:50px;font-size:14px;font-weight:700;cursor:pointer}
+
+/* TOAST */
+.toast.error{background:var(--red)}
+
+/* CONFIG */
+#config-section{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:12px}
+.cfg-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.cfg-label{font-size:13px;color:var(--text2);flex:1}
+.cfg-input{background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:12px;padding:6px 10px;width:160px;outline:none}
+.cfg-input:focus{border-color:var(--amber)}
+.btn-cfg-save{width:100%;padding:11px;background:var(--amber);color:#0f1117;border:none;border-radius:50px;font-size:14px;font-weight:700;cursor:pointer;margin-top:4px}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="header">
+  <div id="header-left">
+    <div id="header-logo">🛢</div>
+    <div>
+      <div id="header-title">Tournée Haupa</div>
+      <div id="header-date"></div>
+    </div>
+  </div>
+  <button id="btn-refresh" title="Recharger" onclick="loadTournee()">↻</button>
+</div>
+
+<!-- STATS BAR -->
+<div id="stats-bar">
+  <div class="stat-chip amber">
+    <span class="val" id="stat-total">—</span>
+    <span class="lbl">Arrêts</span>
+  </div>
+  <div class="stat-chip green">
+    <span class="val" id="stat-done">0</span>
+    <span class="lbl">Faits</span>
+  </div>
+  <div class="stat-chip">
+    <span class="val" id="stat-km">—</span>
+    <span class="lbl">km ~</span>
+  </div>
+</div>
+
+<!-- SCROLL AREA -->
+<div id="scroll">
+  <!-- Section tournée -->
+  <div id="section-tournee">
+    <div id="state-screen">
+      <div id="state-icon">🛢</div>
+      <div id="state-msg">Prêt à charger la tournée du jour</div>
+      <button id="btn-start" onclick="loadTournee()">Charger la tournée</button>
+    </div>
+  </div>
+
+  <!-- Section résumé -->
+  <div id="section-summary"></div>
+
+  <!-- Section settings -->
+  <div id="section-settings">
+    <div class="setting-group">
+      <div class="setting-group-title">Clés API</div>
+      <div class="setting-row">
+        <span class="setting-label">Claude (Vision)</span>
+        <input class="setting-input" id="cfg-claude" type="password" placeholder="sk-ant-...">
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">Airtable</span>
+        <input class="setting-input" id="cfg-airtable" type="password" placeholder="pat…">
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">OpenCage</span>
+        <input class="setting-input" id="cfg-opencage" type="password" placeholder="clé…">
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">ORS</span>
+        <input class="setting-input" id="cfg-ors" type="password" placeholder="eyJ…">
+      </div>
+    </div>
+    <div class="setting-group">
+      <div class="setting-group-title">Dépôt de départ</div>
+      <div class="setting-row">
+        <span class="setting-label">Latitude</span>
+        <input class="setting-input" id="cfg-lat" type="number" step="0.0001" placeholder="43.2574">
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">Longitude</span>
+        <input class="setting-input" id="cfg-lng" type="number" step="0.0001" placeholder="-0.8769">
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">Nom dépôt</span>
+        <input class="setting-input" id="cfg-depot-name" type="text" placeholder="Dépôt Viodos">
+      </div>
+    </div>
+    <button class="btn-save-settings" onclick="saveSettings()">Enregistrer</button>
+  </div>
+
+  <!-- Section feuille de route (extraction photo) -->
+  <div id="section-feuille" style="display:none">
+  <!-- ÉTAPE 1 : PHOTOS -->
+  <div class="step">
+    <div class="step-title">📷 Étape 1 — Photos de la feuille de route</div>
+    <div class="photos-grid" id="photos-grid">
+      <div class="add-photo" onclick="addPhoto()">
+        <div class="icon">📷</div>
+        <div class="txt">Ajouter une page</div>
+      </div>
+    </div>
+    <input type="file" id="input-photo" accept="image/*" capture="environment" style="display:none">
+  </div>
+
+  <!-- ÉTAPE 2 : OPTIONS -->
+  <div class="step">
+    <div class="step-title">🛣 Étape 2 — Options de trajet</div>
+    <div class="option-row">
+      <div>
+        <div class="option-label">Autoroutes & péages autorisés</div>
+        <div class="option-sub">Désactive si le véhicule ne peut pas prendre les autoroutes</div>
+      </div>
+      <button class="toggle on" id="toggle-peages" onclick="togglePeages()"></button>
+    </div>
+  </div>
+
+  <!-- BOUTON ANALYSER -->
+  <button class="btn-analyser" id="btn-analyser" onclick="analyserFeuille()" disabled>
+    🤖 Analyser & générer la tournée
+  </button>
+
+  <!-- LOADING -->
+  <div id="loading">
+    <div class="loader"></div>
+    <div id="loading-msg">Analyse des photos en cours…</div>
+  </div>
+
+  <!-- RÉSULTATS -->
+  <div id="results">
+    <div class="results-header">
+      <div class="results-title">Arrêts détectés</div>
+      <div class="results-count" id="results-count"></div>
+    </div>
+    <div id="stops-list"></div>
+    <div class="btn-row">
+      <button class="btn-secondary" onclick="resetTout()">↺ Recommencer</button>
+      <button class="btn-primary" onclick="genererTournee()">🗺 Générer la tournée</button>
+    </div>
+    <button onclick="ouvrirModalNouveauClient()" style="width:100%;margin-top:8px;padding:12px;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.4);border-radius:50px;color:#60A5FA;font-size:14px;font-weight:600;cursor:pointer">
+      ➕ Ajouter un nouveau client dans Airtable
+    </button>
+  </div>
+
+  <!-- CARTE GLOBALE LEAFLET -->
+  <div id="carte-container">
+    <div class="step-title">🗺 Carte globale — tous les arrêts</div>
+    <div class="carte-legende">
+      <div class="legende-item"><div class="legende-dot" style="background:#F59E0B"></div> Dépôt</div>
+      <div class="legende-item"><div class="legende-dot" style="background:#10B981"></div> Aller</div>
+      <div class="legende-item"><div class="legende-dot" style="background:#EF4444"></div> Retour</div>
+      <div class="legende-item"><div class="legende-dot" style="background:#A855F7"></div> Demi-tour</div>
+      <div class="legende-item"><div class="legende-dot" style="background:#3B82F6"></div> Arrêts</div>
+    </div>
+    <div id="carte"></div>
+    <div id="carte-alerte"></div>
+  </div>
+
+  <!-- MAPS LINKS -->
+  <div id="maps-section">
+    <div class="step-title" style="margin-top:16px">🗺 Liens Google Maps</div>
+    <div id="maps-links"></div>
+  </div>
+  </div>
+</div>
+
+<!-- FAB GOOGLE MAPS -->
+<button id="btn-gmaps" title="Ouvrir dans Google Maps" onclick="openMaps()">🗺</button>
+
+<!-- BOTTOM NAV -->
+<div id="bottom-nav">
+  <button class="nav-btn active" id="nav-tournee" onclick="showSection('tournee')">
+    <span class="nav-icon">🗺</span>
+    <span>Tournée</span>
+  </button>
+  <button class="nav-btn" id="nav-summary" onclick="showSection('summary')">
+    <span class="nav-icon">✅</span>
+    <span>Résumé</span>
+  </button>
+  <button class="nav-btn" id="nav-feuille" onclick="showSection('feuille')">
+    <span class="nav-icon">📷</span>
+    <span>Feuille</span>
+  </button>
+  <button class="nav-btn" id="nav-settings" onclick="showSection('settings')">
+    <span class="nav-icon">⚙</span>
+    <span>Config</span>
+  </button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- MODAL NOUVEAU CLIENT -->
+<div id="client-modal" style="display:none;position:fixed;inset:0;z-index:700;background:rgba(0,0,0,0.8);overflow-y:auto;padding:16px">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);width:100%;max-width:500px;margin:0 auto;overflow:hidden">
+    <div style="padding:14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--bg2);z-index:1">
+      <div style="font-size:16px;font-weight:700">➕ Nouveau client</div>
+      <button onclick="fermerModalClient()" style="background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer">✕</button>
+    </div>
+    <div style="padding:14px;display:flex;flex-direction:column;gap:10px">
+
+      <!-- Nom -->
+      <div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Nom établissement *</div>
+        <input id="nc-nom" type="text" placeholder="Le Bistrot de la Plage"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:14px;padding:10px;outline:none">
+      </div>
+
+      <!-- Type -->
+      <div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Type d'établissement</div>
+        <select id="nc-type" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:14px;padding:10px;outline:none">
+          <option value="Restaurant">Restaurant</option>
+          <option value="Bar">Bar</option>
+          <option value="Hotel">Hôtel</option>
+          <option value="Camping">Camping</option>
+          <option value="Collectivité">Collectivité</option>
+          <option value="Autre">Autre</option>
+        </select>
+      </div>
+
+      <!-- Adresse -->
+      <div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Adresse complète *</div>
+        <input id="nc-adresse" type="text" placeholder="14 place des Tamaris 40480 Vieux Boucau"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:14px;padding:10px;outline:none">
+      </div>
+
+      <!-- Téléphone -->
+      <div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Téléphone</div>
+        <input id="nc-tel" type="tel" placeholder="0600000000"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:14px;padding:10px;outline:none">
+      </div>
+
+      <!-- Email -->
+      <div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Email</div>
+        <input id="nc-email" type="email" placeholder="contact@restaurant.fr"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:14px;padding:10px;outline:none">
+      </div>
+
+      <!-- Contact principal -->
+      <div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Contact principal</div>
+        <input id="nc-contact" type="text" placeholder="Jean Dupont"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:14px;padding:10px;outline:none">
+      </div>
+
+      <!-- SIRET -->
+      <div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:4px">SIRET * <span style="color:var(--amber)">(14 chiffres obligatoire)</span></div>
+        <input id="nc-siret" type="text" placeholder="12345678901234" maxlength="14"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:14px;padding:10px;outline:none"
+          oninput="verifierSIRET(this)">
+        <div id="nc-siret-msg" style="font-size:11px;margin-top:4px;color:var(--text3)">14 chiffres requis</div>
+      </div>
+
+      <!-- Date de contrat -->
+      <div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Date de contrat</div>
+        <input id="nc-date" type="date"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:14px;padding:10px;outline:none">
+      </div>
+
+      <!-- Fréquence collecte -->
+      <div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Fréquence de collecte</div>
+        <select id="nc-frequence" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:14px;padding:10px;outline:none">
+          <option value="">— Sélectionner —</option>
+          <option value="hebdomadaire">Toutes les semaines</option>
+          <option value="bi mensuelle">Tous les 15 jours</option>
+          <option value="mensuelle">Tous les mois</option>
+        </select>
+      </div>
+
+      <!-- Volume cuve -->
+      <div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Volume de cuve estimée (L)</div>
+        <input id="nc-volume" type="number" placeholder="60"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:14px;padding:10px;outline:none">
+      </div>
+
+      <!-- Statut cuve -->
+      <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:12px;display:flex;align-items:center;justify-content:space-between">
+        <div style="font-size:14px">Statut cuve</div>
+        <button class="toggle" id="nc-cuve-toggle" onclick="this.classList.toggle('on')"></button>
+      </div>
+
+      <!-- Boutons -->
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button onclick="fermerModalClient()" style="flex:1;padding:13px;background:transparent;color:var(--text2);border:1px solid var(--border2);border-radius:50px;font-size:14px;cursor:pointer">Annuler</button>
+        <button onclick="sauvegarderNouveauClient()" style="flex:2;padding:13px;background:var(--green);color:#fff;border:none;border-radius:50px;font-size:15px;font-weight:700;cursor:pointer">✓ Créer dans Airtable</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODAL GPS -->
+<div id="gps-modal" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,0.75);align-items:center;justify-content:center;padding:16px">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);width:100%;max-width:400px;overflow:hidden">
+    <div style="padding:14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:15px;font-weight:700" id="gps-modal-title"></div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px" id="gps-modal-addr"></div>
+      </div>
+      <button onclick="fermerModalGPS()" style="background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer">✕</button>
+    </div>
+    <div style="padding:14px">
+      <a id="gps-search-link" target="_blank" style="display:block;text-align:center;padding:10px;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.4);border-radius:8px;color:#60A5FA;font-size:13px;text-decoration:none;margin-bottom:14px">
+        🔍 Chercher sur Google Maps → clic droit → copier les coords
+      </a>
+      <div style="margin-bottom:10px">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Latitude (ex: 44.123456)</div>
+        <input id="gps-input-lat" type="number" step="0.000001" placeholder="44.123456"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:15px;padding:10px;outline:none">
+      </div>
+      <div style="margin-bottom:14px">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Longitude (ex: -1.234567)</div>
+        <input id="gps-input-lng" type="number" step="0.000001" placeholder="-1.234567"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:15px;padding:10px;outline:none">
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="fermerModalGPS()" style="flex:1;padding:12px;background:transparent;color:var(--text2);border:1px solid var(--border2);border-radius:50px;font-size:14px;cursor:pointer">Annuler</button>
+        <button onclick="validerGPS()" style="flex:2;padding:12px;background:var(--amber);color:#0f1117;border:none;border-radius:50px;font-size:14px;font-weight:700;cursor:pointer">✓ Valider</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────────────────────
+const CFG_KEY = 'haupa_config';
+const DONE_KEY = 'haupa_done_';
+const DATA_KEY = 'haupa_data_';
+
+const DEFAULT_CFG = {
+  claude: '',
+  airtable: '',
+  opencage: '',
+  ors: '',
+  lat: 43.2573886,
+  lng: -0.8768927,
+  depotName: "Dépôt — 55 chemin de l'usine, Viodos"
+};
+
+// Constantes Airtable
+const BASE_ID = 'appLYwVCOYHSKWpVy';
+const TABLE_ID = 'tbl4OAfQ9q7A7UwBY';
+const TBL_CLIENTS = TABLE_ID; // alias utilisé par le module Feuille de route
+
+function getDepotFeuille(){
+  const c = getCfg();
+  return { lat: c.lat, lng: c.lng, nom: c.depotName };
+}
+
+function getCfg() {
+  try { return { ...DEFAULT_CFG, ...JSON.parse(localStorage.getItem(CFG_KEY) || '{}') }; }
+  catch { return { ...DEFAULT_CFG }; }
+}
+
+function todayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// ── STATE ────────────────────────────────────────────────────────────────────
+let tourneeData = null;
+let doneSet = new Set();
+let currentSection = 'tournee';
+
+function loadDoneState() {
+  try {
+    const raw = localStorage.getItem(DONE_KEY + todayKey());
+    doneSet = new Set(raw ? JSON.parse(raw) : []);
+  } catch { doneSet = new Set(); }
+}
+
+function saveDoneState() {
+  localStorage.setItem(DONE_KEY + todayKey(), JSON.stringify([...doneSet]));
+}
+
+function markDone(idx) {
+  doneSet.add(idx);
+  saveDoneState();
+  renderTournee();
+  updateStats();
+  renderSummary();
+  showToast('Collecte validée ✓');
+}
+
+function markUndo(idx) {
+  doneSet.delete(idx);
+  saveDoneState();
+  renderTournee();
+  updateStats();
+  renderSummary();
+}
+
+// ── DATE ─────────────────────────────────────────────────────────────────────
+function setHeaderDate() {
+  const d = new Date();
+  const opts = { weekday: 'long', day: 'numeric', month: 'long' };
+  document.getElementById('header-date').textContent =
+    d.toLocaleDateString('fr-FR', opts);
+}
+
+// ── AIRTABLE FETCH ────────────────────────────────────────────────────────────
+async function fetchClientsAirtable(apiKey) {
+  const records = [];
+  let offset;
+  do {
+    const qs = new URLSearchParams({
+      filterByFormula: 'FIND("oui",ARRAYJOIN({Statut cuve}))>0',
+    });
+    ['Nom établissement','Adresse complete','Téléphone','GPS exact'].forEach(f => qs.append('fields[]', f));
+    if (offset) qs.set('offset', offset);
+
+    const res = await fetch(
+      `https://api.airtable.com/v0/${BASE_ID}/${TABLE_ID}?${qs}`,
+      { headers: { Authorization: `Bearer ${apiKey}` } }
+    );
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      throw new Error(`Airtable ${res.status}: ${e?.error?.message || res.statusText}`);
+    }
+    const body = await res.json();
+    records.push(...(body.records || []));
+    offset = body.offset;
+  } while (offset);
+
+  return records.map(r => ({
+    id: r.id,
+    nom: (r.fields['Nom établissement'] || '').trim() || '(sans nom)',
+    adresse: (r.fields['Adresse complete'] || '').trim(),
+    telephone: (r.fields['Téléphone'] || '').trim(),
+    gpsExact: (r.fields['GPS exact'] || '').trim(),
+  }));
+}
+
+// ── GEOCODING ────────────────────────────────────────────────────────────────
+function parseGps(str) {
+  if (!str) return null;
+  const [a, b] = str.split(',').map(s => parseFloat(s.trim()));
+  return (isFinite(a) && isFinite(b)) ? { lat: a, lng: b } : null;
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function geocode(adresse, apiKey) {
+  const qs = new URLSearchParams({ q: adresse, key: apiKey, limit: '1', no_annotations: '1', language: 'fr' });
+  const res = await fetch(`https://api.opencagedata.com/geocode/v1/json?${qs}`);
+  if (!res.ok) return null;
+  const body = await res.json();
+  if (!body.results?.length) return null;
+  return body.results[0].geometry;
+}
+
+// ── ORS OPTIMISATION ─────────────────────────────────────────────────────────
+async function optimiserORS(stops, depart, orsKey) {
+  const jobs = stops.map((s, i) => ({
+    id: i + 1,
+    location: [s.lng, s.lat],
+    description: s.nom,
+  }));
+  const vehicle = {
+    id: 1,
+    profile: 'driving-car',
+    start: [depart.lng, depart.lat],
+    end: [depart.lng, depart.lat],
+  };
+
+  const res = await fetch('https://api.openrouteservice.org/optimization', {
+    method: 'POST',
+    headers: { Authorization: orsKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ jobs, vehicles: [vehicle] }),
+  });
+
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(`ORS ${res.status}: ${JSON.stringify(e)}`);
+  }
+
+  const data = await res.json();
+  const route = data.routes?.[0];
+  if (!route) throw new Error('ORS: aucun itinéraire');
+
+  const jobSteps = route.steps.filter(s => s.type === 'job');
+  let pos = depart;
+  let kmTotal = 0;
+
+  const tournee = jobSteps.map(step => {
+    const s = stops[step.job - 1];
+    const km = haversine(pos, s);
+    kmTotal += km;
+    pos = s;
+    return { ...s, km };
+  });
+
+  return { tournee, kmTotal };
+}
+
+function haversine(a, b) {
+  const R = 6371, toRad = x => x * Math.PI / 180;
+  const dLat = toRad(b.lat - a.lat), dLng = toRad(b.lng - a.lng);
+  const x = Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng/2)**2;
+  return R * 2 * Math.asin(Math.sqrt(x));
+}
+
+// ── GOOGLE MAPS LINKS ─────────────────────────────────────────────────────────
+function genMapLinks(tournee, depart) {
+  const coord = p => `${p.lat.toFixed(6)},${p.lng.toFixed(6)}`;
+  const pts = [depart, ...tournee, depart];
+  const urls = [];
+  let i = 0;
+  while (i < pts.length) {
+    const chunk = pts.slice(i, i + 10);
+    urls.push('https://www.google.com/maps/dir/' + chunk.map(coord).join('/'));
+    if (i + 10 >= pts.length) break;
+    i += 9;
+  }
+  return urls;
+}
+
+// ── LOAD TOURNEE ─────────────────────────────────────────────────────────────
+async function loadTournee() {
+  const cfg = getCfg();
+
+  if (!cfg.airtable) {
+    setState('⚙️', 'Configure les clés API dans Paramètres avant de continuer.', false);
+    showSection('settings');
+    return;
+  }
+
+  const btn = document.getElementById('btn-refresh');
+  btn.classList.add('spinning');
+  setState('', 'Chargement en cours…', false, true);
+
+  try {
+    // 1. Récupération clients Airtable
+    const clients = await fetchClientsAirtable(cfg.airtable);
+    if (!clients.length) {
+      setState('📭', 'Aucun client avec statut cuve "oui" trouvé.', true);
+      btn.classList.remove('spinning');
+      return;
+    }
+
+    setState('', `${clients.length} clients récupérés — Géocodage…`, false, true);
+
+    // 2. Résolution GPS
+    const enrichis = [];
+    let gcCount = 0;
+    for (const c of clients) {
+      const gps = parseGps(c.gpsExact);
+      if (gps) {
+        enrichis.push({ ...c, lat: gps.lat, lng: gps.lng });
+        continue;
+      }
+      if (!c.adresse) continue;
+      if (gcCount++ > 0) await sleep(1100);
+      const coords = await geocode(c.adresse, cfg.opencage);
+      if (coords) enrichis.push({ ...c, lat: coords.lat, lng: coords.lng });
+    }
+
+    if (!enrichis.length) {
+      setState('📍', 'Impossible de géolocaliser les clients. Vérifie les adresses.', true);
+      btn.classList.remove('spinning');
+      return;
+    }
+
+    setState('', 'Optimisation de la route…', false, true);
+
+    // 3. Optimisation ORS
+    const depart = { lat: cfg.lat, lng: cfg.lng, nom: cfg.depotName };
+    const { tournee, kmTotal } = await optimiserORS(enrichis, depart, cfg.ors);
+
+    // 4. Liens Google Maps
+    const mapLinks = genMapLinks(tournee, depart);
+
+    tourneeData = { tournee, depart, kmTotal, mapLinks, loadedAt: new Date().toISOString() };
+
+    // Cache journalier
+    localStorage.setItem(DATA_KEY + todayKey(), JSON.stringify(tourneeData));
+
+    loadDoneState();
+    renderTournee();
+    updateStats();
+    renderSummary();
+    document.getElementById('btn-gmaps').style.display = 'flex';
+  } catch (e) {
+    setState('❌', `Erreur : ${e.message}`, true);
+  }
+
+  btn.classList.remove('spinning');
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function setState(icon, msg, showBtn, loading = false) {
+  document.getElementById('section-tournee').innerHTML = `
+    <div id="state-screen">
+      <div id="state-icon">${loading ? '<div class="loader"></div>' : icon}</div>
+      <div id="state-msg">${msg}</div>
+      ${showBtn ? `<button id="btn-start" onclick="loadTournee()">Réessayer</button>` : ''}
+    </div>
+  `;
+}
+
+function renderTournee() {
+  if (!tourneeData) return;
+  const { tournee, depart } = tourneeData;
+
+  let html = `
+    <div class="depot-card">
+      <div class="depot-icon">🏭</div>
+      <div class="depot-txt">
+        <div class="depot-label">Dépôt départ</div>
+        <div class="depot-name">${escHtml(depart.nom)}</div>
+      </div>
+    </div>
+  `;
+
+  tournee.forEach((s, i) => {
+    const done = doneSet.has(i);
+    const isCurrent = !done && !tournee.slice(0, i).some((_, j) => !doneSet.has(j)) && !doneSet.has(i);
+    const kmStr = s.km ? `+${s.km.toFixed(1)} km` : '';
+
+    html += `
+      <div class="stop-card ${done ? 'done' : isCurrent ? 'current' : ''}">
+        <div class="stop-header">
+          <div class="stop-num">${done ? '✓' : i + 1}</div>
+          <div class="stop-info">
+            <div class="stop-nom">${escHtml(s.nom)}</div>
+            <div class="stop-addr">${escHtml(s.adresse || '')}</div>
+          </div>
+          ${kmStr ? `<div class="stop-km">${kmStr}</div>` : ''}
+        </div>
+        ${s.telephone ? `<div class="stop-tel">📞 ${escHtml(s.telephone)}</div>` : ''}
+        <div class="stop-actions">
+          <button class="btn-nav" onclick="navToStop(${i})">🗺 Naviguer</button>
+          ${done
+            ? `<button class="btn-undo" onclick="markUndo(${i})">↩ Annuler</button>`
+            : `<button class="btn-done" onclick="markDone(${i})">✓ Collecté</button>`
+          }
+        </div>
+      </div>
+    `;
+  });
+
+  // Retour dépôt
+  html += `
+    <div class="depot-card" style="margin-top:4px;opacity:0.7">
+      <div class="depot-icon">🏠</div>
+      <div class="depot-txt">
+        <div class="depot-label">Retour</div>
+        <div class="depot-name">${escHtml(depart.nom)}</div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('section-tournee').innerHTML = html;
+}
+
+function updateStats() {
+  if (!tourneeData) return;
+  const total = tourneeData.tournee.length;
+  const done = doneSet.size;
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('stat-done').textContent = done;
+  document.getElementById('stat-km').textContent = Math.round(tourneeData.kmTotal);
+}
+
+function renderSummary() {
+  if (!tourneeData) {
+    document.getElementById('section-summary').innerHTML =
+      '<div style="color:var(--text2);text-align:center;padding:40px 0;font-size:15px;">Charge d\'abord une tournée</div>';
+    return;
+  }
+  const { tournee, mapLinks } = tourneeData;
+  const done = doneSet.size;
+  const total = tournee.length;
+
+  let html = `<div class="summary-header">Progression ${done}/${total}</div>`;
+
+  // Barre de progression
+  const pct = total ? Math.round(done / total * 100) : 0;
+  html += `
+    <div style="background:var(--bg2);border-radius:6px;height:6px;margin-bottom:14px;overflow:hidden">
+      <div style="height:100%;width:${pct}%;background:var(--green);border-radius:6px;transition:width 0.4s"></div>
+    </div>
+  `;
+
+  tournee.forEach((s, i) => {
+    const ok = doneSet.has(i);
+    html += `
+      <div class="summary-row">
+        <span class="summary-name">${escHtml(s.nom)}</span>
+        <span class="summary-badge ${ok ? 'badge-done' : 'badge-todo'}">${ok ? '✓ Fait' : 'À faire'}</span>
+      </div>
+    `;
+  });
+
+  if (mapLinks.length) {
+    if (mapLinks.length === 1) {
+      html += `<a class="summary-link" href="${mapLinks[0]}" target="_blank">🗺 Ouvrir tout dans Maps</a>`;
+    } else {
+      mapLinks.forEach((url, i) => {
+        html += `<a class="summary-link" style="margin-bottom:6px" href="${url}" target="_blank">🗺 Maps — Segment ${i+1}/${mapLinks.length}</a>`;
+      });
+    }
+  }
+
+  document.getElementById('section-summary').innerHTML = html;
+}
+
+// ── NAVIGATION ────────────────────────────────────────────────────────────────
+function navToStop(idx) {
+  if (!tourneeData) return;
+  const s = tourneeData.tournee[idx];
+  const dest = s.lat && s.lng
+    ? `${s.lat},${s.lng}`
+    : encodeURIComponent(s.adresse);
+  window.open(`https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=driving`, '_blank');
+}
+
+function openMaps() {
+  if (!tourneeData?.mapLinks?.length) return;
+  window.open(tourneeData.mapLinks[0], '_blank');
+}
+
+// ── SECTIONS ──────────────────────────────────────────────────────────────────
+function showSection(name) {
+  currentSection = name;
+  ['tournee','summary','settings','feuille'].forEach(s => {
+    document.getElementById(`section-${s}`).style.display = s === name ? 'block' : 'none';
+    document.getElementById(`nav-${s}`).classList.toggle('active', s === name);
+  });
+
+  const gmaps = document.getElementById('btn-gmaps');
+  if (name === 'tournee' && tourneeData) gmaps.style.display = 'flex';
+  else gmaps.style.display = 'none';
+}
+
+// ── SETTINGS ─────────────────────────────────────────────────────────────────
+function loadSettingsForm() {
+  const cfg = getCfg();
+  document.getElementById('cfg-claude').value = cfg.claude || '';
+  document.getElementById('cfg-airtable').value = cfg.airtable || '';
+  document.getElementById('cfg-opencage').value = cfg.opencage || '';
+  document.getElementById('cfg-ors').value = cfg.ors || '';
+  document.getElementById('cfg-lat').value = cfg.lat || '';
+  document.getElementById('cfg-lng').value = cfg.lng || '';
+  document.getElementById('cfg-depot-name').value = cfg.depotName || '';
+}
+
+function saveSettings() {
+  const cfg = {
+    claude: document.getElementById('cfg-claude').value.trim(),
+    airtable: document.getElementById('cfg-airtable').value.trim(),
+    opencage: document.getElementById('cfg-opencage').value.trim(),
+    ors: document.getElementById('cfg-ors').value.trim(),
+    lat: parseFloat(document.getElementById('cfg-lat').value) || DEFAULT_CFG.lat,
+    lng: parseFloat(document.getElementById('cfg-lng').value) || DEFAULT_CFG.lng,
+    depotName: document.getElementById('cfg-depot-name').value.trim() || DEFAULT_CFG.depotName,
+  };
+  localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+  showToast('Configuration enregistrée ✓');
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function escHtml(str) {
+  return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ── MODULE FEUILLE DE ROUTE (extraction photo → Claude Vision) ──────────────
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── PHOTOS ────────────────────────────────────────────────────────────────────
+let photos = []; // [{dataUrl, name}]
+let peagesOn = true;
+
+function addPhoto(){
+  document.getElementById('input-photo').click();
+}
+
+document.getElementById('input-photo').addEventListener('change', e => {
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    photos.push({ dataUrl: ev.target.result, name: file.name });
+    renderPhotos();
+    updateBtnAnalyser();
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+});
+
+function deletePhoto(idx){
+  photos.splice(idx, 1);
+  renderPhotos();
+  updateBtnAnalyser();
+}
+
+function renderPhotos(){
+  const grid = document.getElementById('photos-grid');
+  let html = '';
+  photos.forEach((p, i) => {
+    html += `<div class="photo-thumb">
+      <img src="${p.dataUrl}" alt="Page ${i+1}">
+      <button class="del" onclick="deletePhoto(${i})">✕</button>
+      <div class="num">Page ${i+1}</div>
+    </div>`;
+  });
+  html += `<div class="add-photo" onclick="addPhoto()">
+    <div class="icon">📷</div>
+    <div class="txt">Ajouter une page</div>
+  </div>`;
+  grid.innerHTML = html;
+}
+
+function updateBtnAnalyser(){
+  document.getElementById('btn-analyser').disabled = photos.length === 0;
+}
+
+function togglePeages(){
+  peagesOn = !peagesOn;
+  document.getElementById('toggle-peages').classList.toggle('on', peagesOn);
+}
+
+// ── ANALYSE CLAUDE VISION ─────────────────────────────────────────────────────
+async function analyserFeuille(){
+  const cfg = getCfg();
+  if(!cfg.claude){ showToast('Clé API Claude manquante — configure-la dans Paramètres', 'error'); showSection('settings'); return; }
+  if(photos.length === 0){ showToast('Ajoute au moins une photo', 'error'); return; }
+
+  document.getElementById('btn-analyser').disabled = true;
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('maps-section').style.display = 'none';
+  setLoadingMsg('Envoi des photos à Claude Vision…');
+
+  try {
+    // Préparer les images pour l'API
+    const imageBlocks = photos.map(p => {
+      const [header, data] = p.dataUrl.split(',');
+      const mediaType = header.match(/:(.*?);/)[1];
+      return {
+        type: 'image',
+        source: { type: 'base64', media_type: mediaType, data }
+      };
+    });
+
+    const prompt = `Tu es un assistant qui analyse des feuilles de route de collecte d'huile de friture pour la société Haupa.
+
+Analyse ces ${photos.length} page(s) de feuille de route et extrait TOUS les arrêts clients dans l'ordre.
+
+Pour chaque arrêt, extrait :
+- numero : numéro d'ordre sur la feuille
+- nom : nom de l'établissement
+- adresse : adresse complète (rue, code postal, ville)
+- telephone : numéro de téléphone si présent
+- contenants : liste des contenants prévus (ex: "2x60", "1x120", "3x30", "poubelles") - extrait exactement ce qui est écrit
+- notes : toute note importante (APPELER AVANT, futs dehors, fermé le mercredi, etc.)
+
+Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après :
+{
+  "tournee_nom": "nom de la tournée si visible",
+  "date": "date si visible",
+  "chauffeur": "nom du chauffeur si visible", 
+  "total_km": "km totaux si visibles",
+  "arrets": [
+    {
+      "numero": 1,
+      "nom": "Nom établissement",
+      "adresse": "Adresse complète",
+      "telephone": "0600000000",
+      "contenants": ["2x60", "1x30"],
+      "notes": "note importante"
+    }
+  ]
+}`;
+
+    const messages = [
+      {
+        role: 'user',
+        content: [
+          ...imageBlocks,
+          { type: 'text', text: prompt }
+        ]
+      }
+    ];
+
+    setLoadingMsg(`Analyse de ${photos.length} page(s)… (peut prendre 15-30s)`);
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': cfg.claude,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-5',
+        max_tokens: 4000,
+        messages
+      })
+    });
+
+    if(!res.ok){
+      const e = await res.json().catch(()=>({}));
+      throw new Error(`Claude API ${res.status}: ${e?.error?.message || res.statusText}`);
+    }
+
+    const data = await res.json();
+    const text = data.content?.[0]?.text || '';
+
+    setLoadingMsg('Traitement des résultats…');
+
+    // Parser le JSON
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if(!jsonMatch) throw new Error('Réponse Claude invalide — impossible de parser le JSON');
+
+    const result = JSON.parse(jsonMatch[0]);
+    const arrets = result.arrets || [];
+
+    if(!arrets.length) throw new Error('Aucun arrêt détecté dans les photos');
+
+    // 1. Géocodage OpenCage en premier
+    setLoadingMsg(`Géocodage de ${arrets.length} adresses…`);
+    const geocodes = await geocoderArrets(arrets, cfg.opencage);
+
+    // 2. Croisement Airtable par-dessus — écrase les coords si GPS exact existe
+    setLoadingMsg('Croisement avec la base clients Airtable…');
+    const enrichis = await croiserAvecAirtable(geocodes, cfg.airtable);
+
+    // Afficher résultats
+    document.getElementById('loading').style.display = 'none';
+    afficherResultats(enrichis, result);
+
+  } catch(e) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('btn-analyser').disabled = false;
+    showToast(`Erreur : ${e.message}`, 'error');
+  }
+}
+
+function setLoadingMsg(msg){
+  document.getElementById('loading-msg').textContent = msg;
+}
+
+// ── CROISEMENT AIRTABLE ───────────────────────────────────────────────────────
+async function fetchAirtableRecords(apiKey, fieldsFilter){
+  const records = [];
+  let offset;
+  do {
+    const qs = new URLSearchParams();
+    if(fieldsFilter) fieldsFilter.forEach(f => qs.append('fields[]', f));
+    qs.set('_t', Date.now()); // forcer pas de cache
+    if(offset) qs.set('offset', offset);
+    const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${TBL_CLIENTS}?${qs}`,
+      {headers:{Authorization:`Bearer ${apiKey}`}});
+    const body = await res.json();
+    if(!res.ok){
+      const err = new Error(body?.error?.message || `Airtable API ${res.status}`);
+      err.airtableError = body?.error;
+      throw err;
+    }
+    records.push(...(body.records||[]));
+    offset = body.offset;
+  } while(offset);
+  return records;
+}
+
+const FIELD_NOM = 'Nom établissement';
+const FIELD_GPS = 'GPS exact';
+
+async function croiserAvecAirtable(arrets, apiKey){
+  if(!apiKey) return arrets;
+  try{
+    // Récupérer tous les clients Airtable
+    let records;
+    try {
+      records = await fetchAirtableRecords(apiKey, [FIELD_NOM, FIELD_GPS]);
+    } catch(err){
+      // Très probablement un nom de champ invalide (422 UNKNOWN_FIELD_NAME).
+      // On retente sans filtre pour au moins récupérer les données.
+      console.warn('[Airtable] échec avec filtre de champs, nouvelle tentative sans filtre:', err.airtableError || err.message);
+      records = await fetchAirtableRecords(apiKey, null);
+    }
+
+    // Pour chaque arrêt extrait, chercher le client Airtable correspondant
+    return arrets.map(a => {
+      const nomNorm = s => (s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+      const match = records.find(r => {
+        const nomAirtable = nomNorm(r.fields[FIELD_NOM]||'');
+        const nomArret = nomNorm(a.nom||'');
+        return nomAirtable && nomArret && (nomAirtable.includes(nomArret) || nomArret.includes(nomAirtable));
+      });
+      if(match){
+        // "GPS exact" peut être une chaîne simple OU un tableau si c'est un champ
+        // Lookup/Rollup côté Airtable — on gère les deux cas.
+        let raw = match.fields[FIELD_GPS];
+        if(Array.isArray(raw)) raw = raw[0];
+        raw = (raw===undefined || raw===null) ? '' : String(raw);
+        raw = raw.trim().split('\n')[0].trim();
+
+        const gps = raw ? raw.split(',').map(s=>parseFloat(s.trim())) : null;
+        const hasGps = !!(gps && gps.length===2 && isFinite(gps[0]) && isFinite(gps[1]));
+
+        return {
+          ...a,
+          id: match.id,
+          // GPS Airtable écrase TOUJOURS OpenCage s'il existe
+          lat: hasGps ? gps[0] : a.lat,
+          lng: hasGps ? gps[1] : a.lng,
+          gpsFromAirtable: hasGps
+        };
+      }
+      return a;
+    });
+  } catch(e){
+    console.warn('Croisement Airtable échoué:', e);
+    return arrets;
+  }
+}
+
+// ── GÉOCODAGE ─────────────────────────────────────────────────────────────────
+async function geocoderArrets(arrets, opencageKey){
+  if(!opencageKey) return arrets.map(a => ({...a, lat:null, lng:null}));
+
+  const enrichis = [];
+  const cache = {}; // cache adresse → coords
+  let gcCount = 0;
+
+  for(let i=0; i<arrets.length; i++){
+    const a = arrets[i];
+    setLoadingMsg(`Géocodage ${i+1}/${arrets.length} : ${a.nom}…`);
+
+    const adresseKey = (a.adresse||'').trim().toLowerCase();
+
+    // Si adresse déjà géocodée → réutiliser avec léger décalage
+    if(adresseKey && cache[adresseKey]){
+      const base = cache[adresseKey];
+      const offset = (enrichis.filter(e => e.adresse?.toLowerCase()===adresseKey).length) * 0.00008;
+      enrichis.push({...a, lat: base.lat + offset, lng: base.lng + offset});
+      continue;
+    }
+
+    if(!a.adresse){ enrichis.push({...a, lat:null, lng:null}); continue; }
+    if(gcCount++ > 0) await sleep(1100);
+
+    try{
+      const qs = new URLSearchParams({q: a.adresse, key: opencageKey, limit:'1', no_annotations:'1', language:'fr'});
+      const res = await fetch(`https://api.opencagedata.com/geocode/v1/json?${qs}`);
+      const body = await res.json();
+      if(body.results?.length){
+        const coords = {lat: body.results[0].geometry.lat, lng: body.results[0].geometry.lng};
+        cache[adresseKey] = coords;
+        enrichis.push({...a, ...coords});
+      } else {
+        enrichis.push({...a, lat:null, lng:null});
+      }
+    } catch {
+      enrichis.push({...a, lat:null, lng:null});
+    }
+  }
+  return enrichis;
+}
+
+// ── AFFICHAGE RÉSULTATS ───────────────────────────────────────────────────────
+let stopsData = [];
+
+function afficherResultats(arrets, meta){
+  stopsData = arrets;
+  document.getElementById('results-count').textContent = `${arrets.length} arrêts`;
+
+  let html = '';
+  arrets.forEach((a, i) => {
+    const contenants = (a.contenants||[]).map(c => `<span class="badge-contenant">${c}</span>`).join('');
+    const gpsOk = a.lat && a.lng;
+    html += `<div class="mf-stop-card" id="stop-${i}">
+      <div class="mf-stop-card-header">
+        <div class="mf-stop-num" style="${gpsOk?'':'background:#6B7280'}">${a.numero||i+1}</div>
+        <div class="stop-body">
+          <div class="mf-stop-nom">${escHtml(a.nom||'')}</div>
+          <div class="mf-stop-addr">${escHtml(a.adresse||'')} ${gpsOk?'📌':'⚠️ non géocodé'}</div>
+        </div>
+        <button class="stop-del" onclick="deleteStop(${i})">✕</button>
+      </div>
+      ${a.telephone?`<div class="mf-stop-tel">📞 ${escHtml(a.telephone)}</div>`:''}
+      ${a.notes?`<div class="mf-stop-tel">⚠️ ${escHtml(a.notes)}</div>`:''}
+      ${contenants?`<div class="stop-contenants">${contenants}</div>`:''}
+      <div style="padding:0 14px 10px 14px;display:flex;gap:6px">
+        <button onclick="ouvrirModalGPS(${i})" style="flex:1;padding:7px;background:${gpsOk?'var(--bg3)':'rgba(245,158,11,0.15)'};border:1px solid ${gpsOk?'var(--border2)':'var(--amber)'};border-radius:6px;color:${gpsOk?'var(--text2)':'var(--amber)'};font-size:12px;cursor:pointer">
+          📍 ${gpsOk?`${a.lat.toFixed(4)}, ${a.lng.toFixed(4)}`:'Saisir GPS manuellement'}
+        </button>
+      </div>
+    </div>`;
+  });
+
+  document.getElementById('stops-list').innerHTML = html;
+  document.getElementById('results').style.display = 'block';
+  document.getElementById('btn-analyser').disabled = false;
+}
+
+// ── NOUVEAU CLIENT ────────────────────────────────────────────────────────────
+function ouvrirModalNouveauClient(){
+  // Pré-remplir la date du jour
+  document.getElementById('nc-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('client-modal').style.display = 'block';
+}
+
+function fermerModalClient(){
+  document.getElementById('client-modal').style.display = 'none';
+}
+
+function verifierSIRET(input){
+  const val = input.value.replace(/\D/g,'');
+  input.value = val;
+  const msg = document.getElementById('nc-siret-msg');
+  if(val.length === 14){
+    msg.textContent = '✓ SIRET valide';
+    msg.style.color = 'var(--green)';
+    input.style.borderColor = 'var(--green)';
+  } else {
+    msg.textContent = `${val.length}/14 chiffres`;
+    msg.style.color = val.length > 0 ? 'var(--amber)' : 'var(--text3)';
+    input.style.borderColor = '';
+  }
+}
+
+async function sauvegarderNouveauClient(){
+  const cfg = getCfg();
+  if(!cfg.airtable){ showToast('Clé API Airtable manquante','error'); return; }
+
+  const nom = document.getElementById('nc-nom').value.trim();
+  const adresse = document.getElementById('nc-adresse').value.trim();
+  const siret = document.getElementById('nc-siret').value.trim();
+
+  if(!nom){ showToast('Nom obligatoire','error'); return; }
+  if(!adresse){ showToast('Adresse obligatoire','error'); return; }
+  if(siret.length !== 14){ showToast('SIRET doit faire 14 chiffres','error'); return; }
+
+  const cuveOn = document.getElementById('nc-cuve-toggle').classList.contains('on');
+  const volume = parseFloat(document.getElementById('nc-volume').value) || null;
+  const dateContrat = document.getElementById('nc-date').value || null;
+
+  const fields = {
+    'Nom établissement': nom,
+    'Adresse complete': adresse,
+    'SIRET': siret,
+    'Statut cuve': cuveOn ? 'oui' : 'non',
+  };
+
+  const type = document.getElementById('nc-type').value;
+  if(type) fields['Types d\'établissement'] = type;
+
+  const tel = document.getElementById('nc-tel').value.trim();
+  if(tel) fields['Téléphone'] = tel;
+
+  const email = document.getElementById('nc-email').value.trim();
+  if(email) fields['e mail'] = email;
+
+  const contact = document.getElementById('nc-contact').value.trim();
+  if(contact) fields['Contact principal'] = contact;
+
+  const frequence = document.getElementById('nc-frequence').value;
+  if(frequence) fields['Frequence de collecte'] = frequence;
+
+  if(volume) fields['Volume de cuve estimée'] = volume;
+  if(dateContrat) fields['Date de contrat'] = dateContrat;
+
+  try{
+    const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${TBL_CLIENTS}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${cfg.airtable}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ records: [{ fields }] })
+    });
+
+    if(!res.ok){
+      const e = await res.json().catch(()=>({}));
+      throw new Error(e?.error?.message || res.statusText);
+    }
+
+    fermerModalClient();
+    showToast(`✓ ${nom} créé dans Airtable !`);
+  } catch(e){
+    showToast(`Erreur : ${e.message}`, 'error');
+  }
+}
+
+// ── MODAL GPS ────────────────────────────────────────────────────────────────
+let gpsModalIdx = null;
+
+function ouvrirModalGPS(idx){
+  gpsModalIdx = idx;
+  const a = stopsData[idx];
+  document.getElementById('gps-modal-title').textContent = a.nom;
+  document.getElementById('gps-modal-addr').textContent = a.adresse || '';
+  document.getElementById('gps-input-lat').value = a.lat || '';
+  document.getElementById('gps-input-lng').value = a.lng || '';
+  // Lien pour chercher sur Google Maps
+  const searchUrl = `https://www.google.com/maps/search/${encodeURIComponent(a.adresse||a.nom)}`;
+  document.getElementById('gps-search-link').href = searchUrl;
+  document.getElementById('gps-modal').style.display = 'flex';
+}
+
+function fermerModalGPS(){
+  document.getElementById('gps-modal').style.display = 'none';
+  gpsModalIdx = null;
+}
+
+async function validerGPS(){
+  if(gpsModalIdx === null) return;
+  // Accepter virgule ou point comme séparateur décimal
+  const latRaw = document.getElementById('gps-input-lat').value.replace(',','.');
+  const lngRaw = document.getElementById('gps-input-lng').value.replace(',','.');
+  const lat = parseFloat(latRaw);
+  const lng = parseFloat(lngRaw);
+  if(!isFinite(lat) || !isFinite(lng)){
+    showToast('Coordonnées invalides', 'error'); return;
+  }
+
+  // Mise à jour locale
+  stopsData[gpsModalIdx].lat = lat;
+  stopsData[gpsModalIdx].lng = lng;
+
+  // Sauvegarde dans Airtable si le client a un ID
+  const a = stopsData[gpsModalIdx];
+  const cfg = getCfg();
+  if(a.id && cfg.airtable){
+    try{
+      const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${TBL_CLIENTS}/${a.id}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${cfg.airtable}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          fields: { 'GPS exact': `${lat},${lng}` }
+        })
+      });
+      if(res.ok){
+        showToast('GPS sauvegardé dans Airtable ✓');
+      } else {
+        showToast('GPS mis à jour localement (erreur Airtable)', 'error');
+      }
+    } catch {
+      showToast('GPS mis à jour localement (pas de réseau)', 'error');
+    }
+  } else {
+    showToast('GPS mis à jour ✓');
+  }
+
+  fermerModalGPS();
+  afficherResultats(stopsData, {});
+}
+
+function deleteStop(idx){
+  stopsData.splice(idx, 1);
+  afficherResultats(stopsData, {});
+}
+
+// ── GÉNÉRATION TOURNÉE ────────────────────────────────────────────────────────
+const GMAPS_MAX = 10;
+
+let carteLeaflet = null;
+
+function afficherCarteLeaflet(arrets){
+  const DEPOT = getDepotFeuille();
+  const avecCoords = arrets.filter(a => a.lat && a.lng);
+  const sansCoords = arrets.filter(a => !a.lat || !a.lng);
+  if(!avecCoords.length) return;
+
+  document.getElementById('carte-container').style.display = 'block';
+
+  // Détruire la carte précédente
+  if(carteLeaflet){ carteLeaflet.remove(); carteLeaflet = null; }
+
+  // Centrer sur les arrêts géocodés
+  const lats = avecCoords.map(a => a.lat);
+  const lngs = avecCoords.map(a => a.lng);
+  const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+  const centerLng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
+
+  carteLeaflet = L.map('carte').setView([centerLat, centerLng], 9);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap', maxZoom: 18
+  }).addTo(carteLeaflet);
+
+  // Marqueur dépôt
+  const depotIcon = L.divIcon({
+    html: `<div style="background:#F59E0B;width:28px;height:28px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 2px 6px rgba(0,0,0,0.4)">🏭</div>`,
+    className:'', iconSize:[28,28], iconAnchor:[14,14]
+  });
+  L.marker([DEPOT.lat, DEPOT.lng], {icon:depotIcon})
+    .addTo(carteLeaflet)
+    .bindPopup(`<b>Dépôt Haupa</b><br>Mauléon-Licharre`);
+
+  // Marqueurs tous les arrêts géocodés
+  avecCoords.forEach((a, i) => {
+    const idxOriginal = arrets.indexOf(a);
+    const isFirst = i === 0;
+    const isLast = i === avecCoords.length - 1;
+    const color = isFirst ? '#10B981' : isLast ? '#EF4444' : '#3B82F6';
+    const icon = L.divIcon({
+      html: `<div style="background:${color};width:26px;height:26px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,0.4)">${idxOriginal+1}</div>`,
+      className:'', iconSize:[26,26], iconAnchor:[13,13]
+    });
+    const contenants = (a.contenants||[]).join(', ');
+    const popup = `<b>${a.nom}</b><br><span style="font-size:12px">${a.adresse||''}</span>${a.telephone?`<br>📞 ${a.telephone}`:''}${contenants?`<br>📦 ${contenants}`:''}${a.notes?`<br>⚠️ ${a.notes}`:''}`;
+    L.marker([a.lat, a.lng], {icon}).addTo(carteLeaflet).bindPopup(popup);
+  });
+
+  // Trouver le point de demi-tour = arrêt le plus éloigné du dépôt
+  let maxDist = 0, idxDemiTour = 0;
+  avecCoords.forEach((a, i) => {
+    const d = haversine(DEPOT, a);
+    if(d > maxDist){ maxDist = d; idxDemiTour = i; }
+  });
+
+  // Aller = dépôt → arrêts jusqu'au demi-tour
+  const partieAller = avecCoords.slice(0, idxDemiTour + 1);
+  // Retour = demi-tour → arrêts restants → dépôt
+  const partieRetour = avecCoords.slice(idxDemiTour);
+
+  const coordStr = pts => pts.map(p => `${p.lng.toFixed(6)},${p.lat.toFixed(6)}`).join(';');
+
+  const osrmAller  = `https://router.project-osrm.org/route/v1/driving/${coordStr([DEPOT,...partieAller])}?overview=full&geometries=geojson`;
+  const osrmRetour = `https://router.project-osrm.org/route/v1/driving/${coordStr([...partieRetour,DEPOT])}?overview=full&geometries=geojson`;
+
+  // Marqueur demi-tour
+  const demiTourIcon = L.divIcon({
+    html:`<div style="background:#A855F7;width:30px;height:30px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 6px rgba(0,0,0,0.4)">↩</div>`,
+    className:'', iconSize:[30,30], iconAnchor:[15,15]
+  });
+  L.marker([avecCoords[idxDemiTour].lat, avecCoords[idxDemiTour].lng], {icon:demiTourIcon})
+    .addTo(carteLeaflet)
+    .bindPopup(`<b>↩ Point de demi-tour</b><br>${avecCoords[idxDemiTour].nom}`);
+
+  Promise.all([
+    fetch(osrmAller).then(r=>r.json()).catch(()=>null),
+    fetch(osrmRetour).then(r=>r.json()).catch(()=>null)
+  ]).then(([dataAller, dataRetour]) => {
+    if(dataAller?.routes?.[0]?.geometry){
+      L.geoJSON(dataAller.routes[0].geometry, {
+        style:{color:'#10B981', weight:5, opacity:0.9}
+      }).addTo(carteLeaflet).bindPopup('🟢 Aller');
+    }
+    if(dataRetour?.routes?.[0]?.geometry){
+      L.geoJSON(dataRetour.routes[0].geometry, {
+        style:{color:'#EF4444', weight:4, opacity:0.85, dashArray:'10,5'}
+      }).addTo(carteLeaflet).bindPopup('🔴 Retour');
+    }
+    if(!dataAller && !dataRetour){
+      L.polyline([DEPOT,...partieAller].map(p=>[p.lat,p.lng]), {color:'#10B981',weight:4}).addTo(carteLeaflet);
+      L.polyline([...partieRetour,DEPOT].map(p=>[p.lat,p.lng]), {color:'#EF4444',weight:3,dashArray:'8,5'}).addTo(carteLeaflet);
+    }
+  });
+
+  // Ajuster la vue
+  const allCoords = [[DEPOT.lat, DEPOT.lng], ...avecCoords.map(a => [a.lat, a.lng])];
+  const bounds = L.latLngBounds(allCoords);
+  carteLeaflet.fitBounds(bounds, {padding:[20,20]});
+
+  // Afficher alerte adresses non géocodées
+  const alerteDiv = document.getElementById('carte-alerte');
+  if(sansCoords.length){
+    alerteDiv.innerHTML = `<div style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.4);border-radius:8px;padding:10px 12px;margin-top:8px">
+      <div style="font-size:12px;font-weight:700;color:#EF4444;margin-bottom:6px">⚠️ ${sansCoords.length} adresse(s) non géocodée(s) — à corriger manuellement :</div>
+      ${sansCoords.map(a => {
+        const idx = arrets.indexOf(a);
+        return `<div style="font-size:12px;color:var(--text2);padding:3px 0;display:flex;justify-content:space-between;align-items:center">
+          <span>${idx+1}. ${a.nom} — ${a.adresse||'adresse manquante'}</span>
+          <button onclick="ouvrirModalGPS(${idx})" style="background:var(--amber);color:#0f1117;border:none;border-radius:4px;padding:3px 8px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;margin-left:8px">Corriger</button>
+        </div>`;
+      }).join('')}
+    </div>`;
+  } else {
+    alerteDiv.innerHTML = '';
+  }
+}
+
+function genererLiensGMaps(arrets, couleur){
+  const DEPOT = getDepotFeuille();
+  const avecCoords = arrets.filter(a => a.lat && a.lng);
+  if(!avecCoords.length) return [];
+
+  const coord = p => `${p.lat.toFixed(6)},${p.lng.toFixed(6)}`;
+  const pts = [DEPOT, ...avecCoords, DEPOT];
+  const urls = [];
+  let i = 0;
+  while(i < pts.length){
+    const chunk = pts.slice(i, i+GMAPS_MAX);
+    urls.push({
+      url: 'https://www.google.com/maps/dir/' + chunk.map(coord).join('/'),
+      label: urls.length === 0 ? 'Segment 1' : `Segment ${urls.length+1}`
+    });
+    if(i+GMAPS_MAX >= pts.length) break;
+    i += GMAPS_MAX - 1;
+  }
+  return urls;
+}
+
+async function genererTournee(){
+  if(!stopsData.length){ showToast('Aucun arrêt à traiter', 'error'); return; }
+  const DEPOT = getDepotFeuille();
+
+  const cfg = getCfg();
+  const avecCoords = stopsData.filter(a => a.lat && a.lng);
+
+  if(!avecCoords.length){
+    showToast('Aucune adresse géocodée — vérifie la clé OpenCage', 'error');
+    return;
+  }
+
+  // Optimisation simple nearest-neighbor si pas de clé ORS
+  let ordonnes = avecCoords;
+  if(cfg.ors){
+    try{
+      ordonnes = await optimiserORSSimple(avecCoords, cfg.ors);
+    } catch(e){
+      showToast('ORS indisponible — ordre original conservé', 'error');
+    }
+  }
+
+  // Générer les liens Google Maps (aller = vert, retour = rouge)
+  const liensAller = genererLiensGMaps(ordonnes);
+
+  // Mémoriser pour le pont vers l'onglet Tournée
+  mfOrdonneesActuelles = ordonnes;
+
+  let html = '';
+
+  // Afficher la carte Leaflet
+  afficherCarteLeaflet(ordonnes);
+
+  // Aller
+  html += `<div class="maps-card">
+    <div class="maps-card-header">
+      <div class="maps-card-icon">🟢</div>
+      <div class="maps-card-title">Tournée aller (${ordonnes.length} arrêts)</div>
+    </div>`;
+  liensAller.forEach((l, i) => {
+    html += `<a class="maps-link" href="${l.url}" target="_blank">
+      <span class="maps-link-label">🗺 ${l.label} — Ouvrir dans Maps</span>
+      <span class="maps-link-arrow">→</span>
+    </a>`;
+  });
+  html += `</div>`;
+
+  // Retour (inverse)
+  const ordonnesRetour = [...ordonnes].reverse();
+  const liensRetour = genererLiensGMaps(ordonnesRetour);
+  html += `<div class="maps-card">
+    <div class="maps-card-header">
+      <div class="maps-card-icon">🔴</div>
+      <div class="maps-card-title">Retour dépôt</div>
+    </div>`;
+  liensRetour.forEach(l => {
+    html += `<a class="maps-link" href="${l.url}" target="_blank">
+      <span class="maps-link-label">🗺 ${l.label} — Ouvrir dans Maps</span>
+      <span class="maps-link-arrow">→</span>
+    </a>`;
+  });
+  html += `</div>`;
+
+  // Liste ordonnée
+  let kmTotal = 0;
+  let pos = DEPOT;
+  let listeHtml = `<div class="maps-card"><div class="maps-card-header"><div class="maps-card-icon">📋</div><div class="maps-card-title">Ordre de passage optimisé</div></div>`;
+  ordonnes.forEach((a, i) => {
+    const km = haversine(pos, a);
+    kmTotal += km;
+    pos = a;
+    listeHtml += `<div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:center">
+      <div style="width:24px;height:24px;border-radius:50%;background:var(--amber);color:#0f1117;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${i+1}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(a.nom)}</div>
+        <div style="font-size:11px;color:var(--text2)">${escHtml(a.adresse||'')} — +${km.toFixed(1)} km</div>
+        ${(a.contenants||[]).length?`<div style="font-size:11px;color:var(--amber);margin-top:2px">${a.contenants.join(', ')}</div>`:''}
+        ${a.notes?`<div style="font-size:11px;color:var(--red);margin-top:1px">⚠️ ${escHtml(a.notes)}</div>`:''}
+      </div>
+    </div>`;
+  });
+  const retourKm = haversine(pos, DEPOT);
+  kmTotal += retourKm;
+  listeHtml += `<div style="padding:10px 14px;font-size:12px;color:var(--text2);text-align:center">Distance totale estimée : ~${Math.round(kmTotal)} km</div>`;
+  listeHtml += `</div>`;
+
+  html += listeHtml;
+
+  html += `<button onclick="utiliserCommeTournee()" style="width:100%;margin-top:8px;padding:15px;background:var(--green);color:#fff;border:none;border-radius:50px;font-size:15px;font-weight:700;cursor:pointer">✅ Utiliser comme tournée du jour</button>`;
+
+  document.getElementById('maps-links').innerHTML = html;
+  document.getElementById('maps-section').style.display = 'block';
+  document.getElementById('maps-section').scrollIntoView({behavior:'smooth'});
+  showToast('Tournée générée ! ✓');
+}
+
+// ── PONT VERS L'ONGLET TOURNÉE ─────────────────────────────────────────────────
+let mfOrdonneesActuelles = [];
+
+function utiliserCommeTournee(){
+  if(!mfOrdonneesActuelles.length){ showToast('Aucune tournée à utiliser', 'error'); return; }
+  const depart = getDepotFeuille();
+  let kmTotal = 0, pos = depart;
+  const tournee = mfOrdonneesActuelles.map(a => {
+    const km = haversine(pos, a);
+    kmTotal += km;
+    pos = a;
+    return { ...a, km };
+  });
+  kmTotal += haversine(pos, depart);
+  const mapLinks = genMapLinks(tournee, depart);
+
+  tourneeData = { tournee, depart, kmTotal, mapLinks, loadedAt: new Date().toISOString() };
+  localStorage.setItem(DATA_KEY + todayKey(), JSON.stringify(tourneeData));
+
+  loadDoneState();
+  renderTournee();
+  updateStats();
+  renderSummary();
+  document.getElementById('btn-gmaps').style.display = 'flex';
+  showSection('tournee');
+  showToast('Tournée du jour mise à jour ✓');
+}
+
+async function optimiserORSSimple(stops, orsKey){
+  const DEPOT = getDepotFeuille();
+  const jobs = stops.map((s, i) => ({id:i+1, location:[s.lng, s.lat], description:s.nom}));
+  const vehicle = {id:1, profile:'driving-car', start:[DEPOT.lng, DEPOT.lat], end:[DEPOT.lng, DEPOT.lat]};
+  const res = await fetch('https://api.openrouteservice.org/optimization', {
+    method:'POST',
+    headers:{Authorization:orsKey,'Content-Type':'application/json',Accept:'application/json'},
+    body:JSON.stringify({jobs, vehicles:[vehicle]})
+  });
+  if(!res.ok) throw new Error('ORS error');
+  const data = await res.json();
+  const route = data.routes?.[0]; if(!route) throw new Error('no route');
+  const jobSteps = route.steps.filter(s => s.type === 'job');
+  return jobSteps.map(step => stops[step.job-1]);
+}
+
+function resetTout(){
+  photos = []; stopsData = []; mfOrdonneesActuelles = [];
+  renderPhotos();
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('maps-section').style.display = 'none';
+  document.getElementById('carte-container').style.display = 'none';
+  document.getElementById('carte-alerte').innerHTML = '';
+  if(carteLeaflet){ carteLeaflet.remove(); carteLeaflet = null; }
+  updateBtnAnalyser();
+  window.scrollTo(0, 0);
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function showToast(msg, type=''){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast' + (type ? ` ${type}` : '');
+  t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+function init() {
+  setHeaderDate();
+  loadDoneState();
+  loadSettingsForm();
+  showSection('tournee');
+
+  // Essaie de charger le cache du jour
+  try {
+    const cached = localStorage.getItem(DATA_KEY + todayKey());
+    if (cached) {
+      tourneeData = JSON.parse(cached);
+      renderTournee();
+      updateStats();
+      renderSummary();
+      document.getElementById('btn-gmaps').style.display = 'flex';
+    }
+  } catch {}
+}
+
+init();
+</script>
+</body>
+</html>

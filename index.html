@@ -1273,7 +1273,7 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après :
       },
       body: JSON.stringify({
         model: 'claude-sonnet-5',
-        max_tokens: 8000,
+        max_tokens: 16000,
         messages
       })
     });
@@ -1290,19 +1290,34 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après :
       console.error('[Claude Vision] Aucun bloc texte trouvé dans la réponse. Blocs reçus:', (data.content||[]).map(b=>b.type), '| stop_reason:', data.stop_reason, '| réponse complète:', data);
     }
     if(data.stop_reason === 'max_tokens'){
-      console.warn('[Claude Vision] Réponse tronquée (max_tokens atteint) — augmenter max_tokens si le problème persiste.');
+      console.warn('[Claude Vision] Réponse tronquée — tentative de récupération partielle');
+      showToast('⚠️ Réponse tronquée, résultats partiels possibles', 'warn');
     }
 
     setLoadingMsg('Traitement des résultats…');
 
-    // Parser le JSON
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    // Parser le JSON — avec récupération si tronqué
+    const jsonMatch = text.match(/\{[\s\S]*/);
     if(!jsonMatch) {
-      console.error('[Claude Vision] Réponse brute reçue (pas de JSON trouvé):', text);
-      throw new Error('Réponse Claude invalide — impossible de parser le JSON (voir console pour le détail)');
+      console.error('[Claude Vision] Réponse brute:', text);
+      throw new Error('Réponse Claude invalide — aucun JSON trouvé');
     }
-
-    const result = JSON.parse(jsonMatch[0]);
+    let jsonStr = jsonMatch[0];
+    // Si tronqué, fermer les tableaux/objets ouverts
+    if(data.stop_reason === 'max_tokens'){
+      const opens = (jsonStr.match(/\[/g)||[]).length - (jsonStr.match(/\]/g)||[]).length;
+      const openObj = (jsonStr.match(/\{/g)||[]).length - (jsonStr.match(/\}/g)||[]).length;
+      // Couper à la dernière entrée complète
+      const lastComma = jsonStr.lastIndexOf('},');
+      if(lastComma > 0) jsonStr = jsonStr.slice(0, lastComma+1) + ']}'.repeat(Math.max(0,openObj));
+      else jsonStr += ']'.repeat(Math.max(0,opens)) + '}'.repeat(Math.max(0,openObj));
+    }
+    let result;
+    try { result = JSON.parse(jsonStr); }
+    catch(e) {
+      console.error('[Claude Vision] JSON invalide même après récupération:', jsonStr.slice(-200));
+      throw new Error('Réponse Claude tronquée — réessaie avec moins de photos (3-4 max)');
+    }
     const arrets = result.arrets || [];
 
     if(!arrets.length) throw new Error('Aucun arrêt détecté dans les photos');

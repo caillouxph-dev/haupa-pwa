@@ -1912,7 +1912,7 @@ async function optimiserORSSimple(stops, orsKey){
     body:JSON.stringify({jobs, vehicles:[vehicle]})
   });
   if(!res.ok) throw new Error('ORS error');
-  const data = await res.json();
+  const data = await safeJson(res, 'ORS-simple');
   const route = data.routes?.[0]; if(!route) throw new Error('no route');
   const jobSteps = route.steps.filter(s => s.type === 'job');
   return jobSteps.map(step => stops[step.job-1]);

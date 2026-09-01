@@ -843,7 +843,16 @@ async function optimiserORS(stops, depart, orsKey) {
     throw new Error(`ORS ${res.status}: ${JSON.stringify(e)}`);
   }
 
-  const data = await safeJson(res, 'ORS');
+  const rawOrs = await res.text();
+  const cleanOrs = rawOrs.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+  let data;
+  try { data = JSON.parse(cleanOrs); }
+  catch(e) {
+    const m = e.message.match(/position (\d+)/);
+    const pos = m ? parseInt(m[1]) : 0;
+    const ctx = cleanOrs.slice(Math.max(0,pos-100), pos+100).replace(/\n/g,'↵');
+    throw new Error(`[ORS JSON] ${e.message} — contexte: «${ctx}»`);
+  }
   const route = data.routes?.[0];
   if (!route) throw new Error('ORS: aucun itinéraire');
 
@@ -1912,7 +1921,16 @@ async function optimiserORSSimple(stops, orsKey){
     body:JSON.stringify({jobs, vehicles:[vehicle]})
   });
   if(!res.ok) throw new Error('ORS error');
-  const data = await safeJson(res, 'ORS-simple');
+  const rawOrs2 = await res.text();
+  const cleanOrs2 = rawOrs2.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+  let data;
+  try { data = JSON.parse(cleanOrs2); }
+  catch(e) {
+    const m = e.message.match(/position (\d+)/);
+    const pos = m ? parseInt(m[1]) : 0;
+    const ctx = cleanOrs2.slice(Math.max(0,pos-100), pos+100).replace(/\n/g,'↵');
+    throw new Error(`[ORS-simple JSON] ${e.message} — contexte: «${ctx}»`);
+  }
   const route = data.routes?.[0]; if(!route) throw new Error('no route');
   const jobSteps = route.steps.filter(s => s.type === 'job');
   return jobSteps.map(step => stops[step.job-1]);

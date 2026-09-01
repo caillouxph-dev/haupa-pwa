@@ -1095,7 +1095,31 @@ function navToStop(idx) {
 
 function openMaps() {
   if (!tourneeData?.mapLinks?.length) return;
-  window.open(tourneeData.mapLinks[0], '_blank');
+  const links = tourneeData.mapLinks;
+
+  if (links.length === 1) {
+    // Un seul lien : partage natif ou ouverture directe
+    if (navigator.share) {
+      navigator.share({
+        title: 'Tournée Haupa',
+        text: `Tournée du ${new Date().toLocaleDateString('fr-FR')} — ${tourneeData.stops?.length || ''} arrêts`,
+        url: links[0]
+      }).catch(() => window.open(links[0], '_blank'));
+    } else {
+      window.open(links[0], '_blank');
+    }
+  } else {
+    // Plusieurs segments : partage ou affichage de tous les liens
+    const text = links.map((u, i) => `Segment ${i+1} : ${u}`).join('\n\n');
+    if (navigator.share) {
+      navigator.share({
+        title: 'Tournée Haupa',
+        text: `Tournée du ${new Date().toLocaleDateString('fr-FR')} — ${links.length} segments\n\n${text}`
+      }).catch(() => links.forEach(u => window.open(u, '_blank')));
+    } else {
+      links.forEach(u => window.open(u, '_blank'));
+    }
+  }
 }
 
 // ── SECTIONS ──────────────────────────────────────────────────────────────────

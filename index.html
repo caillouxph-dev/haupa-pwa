@@ -1148,6 +1148,24 @@ function escHtml(str) {
 
 // ── PHOTOS ────────────────────────────────────────────────────────────────────
 let photos = []; // [{dataUrl, name}]
+
+/** Redimensionne et compresse une image en JPEG (max 1024px, qualité 82%) */
+function compressImage(dataUrl, maxPx = 1024, quality = 0.82) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(dataUrl); // fallback sans compression
+    img.src = dataUrl;
+  });
+}
 let peagesOn = true;
 
 function addPhoto(){
@@ -1211,15 +1229,13 @@ async function analyserFeuille(){
   setLoadingMsg('Envoi des photos à Claude Vision…');
 
   try {
-    // Préparer les images pour l'API
-    const imageBlocks = photos.map(p => {
-      const [header, data] = p.dataUrl.split(',');
-      const mediaType = header.match(/:(.*?);/)[1];
-      return {
-        type: 'image',
-        source: { type: 'base64', media_type: mediaType, data }
-      };
-    });
+    // Compresser et préparer les images pour l'API (max 1024px → ~2MB total)
+    setLoadingMsg('Compression des images…');
+    const imageBlocks = await Promise.all(photos.map(async p => {
+      const compressed = await compressImage(p.dataUrl);
+      const data = compressed.split(',')[1];
+      return { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } };
+    }));
 
     const prompt = `Tu es un assistant qui analyse des feuilles de route de collecte d'huile de friture pour la société Haupa.
 

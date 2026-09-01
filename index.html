@@ -1273,7 +1273,7 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après :
       },
       body: JSON.stringify({
         model: 'claude-opus-4-5',
-        max_tokens: 16000,
+        max_tokens: 32768,
         messages
       })
     });
@@ -1296,27 +1296,35 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après :
 
     setLoadingMsg('Traitement des résultats…');
 
-    // Parser le JSON — avec récupération si tronqué
-    const jsonMatch = text.match(/\{[\s\S]*/);
-    if(!jsonMatch) {
+    // Parser le JSON — extraction robuste avec récupération si tronqué
+    const startIdx = text.indexOf('{');
+    if(startIdx < 0) {
       console.error('[Claude Vision] Réponse brute:', text);
       throw new Error('Réponse Claude invalide — aucun JSON trouvé');
     }
-    let jsonStr = jsonMatch[0];
-    // Si tronqué, fermer les tableaux/objets ouverts
-    if(data.stop_reason === 'max_tokens'){
-      const opens = (jsonStr.match(/\[/g)||[]).length - (jsonStr.match(/\]/g)||[]).length;
-      const openObj = (jsonStr.match(/\{/g)||[]).length - (jsonStr.match(/\}/g)||[]).length;
-      // Couper à la dernière entrée complète
+    let jsonStr;
+    if(data.stop_reason !== 'max_tokens') {
+      // Réponse complète : trouver l'accolade fermante correspondante
+      let depth = 0, endIdx = -1;
+      for(let i = startIdx; i < text.length; i++) {
+        if(text[i] === '{') depth++;
+        else if(text[i] === '}') { if(--depth === 0) { endIdx = i; break; } }
+      }
+      jsonStr = endIdx >= 0 ? text.slice(startIdx, endIdx + 1) : text.slice(startIdx);
+    } else {
+      // Réponse tronquée : prendre tout depuis { et fermer les structures ouvertes
+      jsonStr = text.slice(startIdx);
+      const opens    = (jsonStr.match(/\[/g)||[]).length - (jsonStr.match(/\]/g)||[]).length;
+      const openObj  = (jsonStr.match(/\{/g)||[]).length - (jsonStr.match(/\}/g)||[]).length;
       const lastComma = jsonStr.lastIndexOf('},');
-      if(lastComma > 0) jsonStr = jsonStr.slice(0, lastComma+1) + ']}'.repeat(Math.max(0,openObj));
-      else jsonStr += ']'.repeat(Math.max(0,opens)) + '}'.repeat(Math.max(0,openObj));
+      if(lastComma > 0) jsonStr = jsonStr.slice(0, lastComma + 1) + ']}'.repeat(Math.max(0, openObj));
+      else jsonStr += ']'.repeat(Math.max(0, opens)) + '}'.repeat(Math.max(0, openObj));
     }
     let result;
     try { result = JSON.parse(jsonStr); }
     catch(e) {
-      console.error('[Claude Vision] JSON invalide même après récupération:', jsonStr.slice(-200));
-      throw new Error('Réponse Claude tronquée — réessaie avec moins de photos (3-4 max)');
+      console.error('[Claude Vision] JSON invalide:', jsonStr.slice(-200));
+      throw new Error('Réponse Claude invalide — vérifie la console pour les détails');
     }
     const arrets = result.arrets || [];
 

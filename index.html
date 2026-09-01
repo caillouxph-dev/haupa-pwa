@@ -812,7 +812,7 @@ async function optimiserORS(stops, depart, orsKey) {
   const jobs = stops.map((s, i) => ({
     id: i + 1,
     location: [s.lng, s.lat],
-    description: s.nom,
+    description: (s.nom||'').replace(/[\x00-\x1F\x7F]/g,' ').slice(0,100),
   }));
   const vehicle = {
     id: 1,
@@ -1893,7 +1893,7 @@ function utiliserCommeTournee(){
 
 async function optimiserORSSimple(stops, orsKey){
   const DEPOT = getDepotFeuille();
-  const jobs = stops.map((s, i) => ({id:i+1, location:[s.lng, s.lat], description:s.nom}));
+  const jobs = stops.map((s, i) => ({id:i+1, location:[s.lng, s.lat], description:(s.nom||'').replace(/[\x00-\x1F\x7F]/g,' ').slice(0,100)}));
   const vehicle = {id:1, profile:'driving-car', start:[DEPOT.lng, DEPOT.lat], end:[DEPOT.lng, DEPOT.lat]};
   const res = await fetch('https://api.openrouteservice.org/optimization', {
     method:'POST',

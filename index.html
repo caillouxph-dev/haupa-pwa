@@ -1279,20 +1279,29 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après :
 
     setLoadingMsg(`Analyse de ${photos.length} page(s)… (peut prendre 15-30s)`);
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': cfg.claude,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-opus-4-5',
-        max_tokens: 32768,
-        messages
-      })
-    });
+    // Appel avec retry automatique (jusqu'à 3 tentatives en cas de surcharge 529)
+    let res;
+    for(let attempt = 1; attempt <= 3; attempt++) {
+      if(attempt > 1) {
+        setLoadingMsg(`Serveur surchargé — nouvelle tentative ${attempt}/3 dans 8s…`);
+        await sleep(8000);
+      }
+      res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': cfg.claude,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-5',
+          max_tokens: 16000,
+          messages
+        })
+      });
+      if(res.ok || res.status !== 529) break;
+    }
 
     if(!res.ok){
       const e = await res.json().catch(()=>({}));

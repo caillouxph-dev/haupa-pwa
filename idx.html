@@ -461,11 +461,6 @@
       </div>
     </div>
     <input type="file" id="input-photo" accept="image/*" capture="environment" style="display:none">
-    <input type="file" id="input-fichier" accept="image/*" multiple style="display:none">
-    <button onclick="document.getElementById('input-fichier').click()"
-      style="margin-top:8px;width:100%;padding:11px;background:transparent;border:1px dashed var(--border2);border-radius:10px;color:var(--text2);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
-      📂 Charger des JPG depuis l'ordi (sélection multiple)
-    </button>
   </div>
 
   <!-- ÉTAPE 2 : OPTIONS -->
@@ -787,7 +782,7 @@ async function fetchClientsAirtable(apiKey) {
     ['Nom établissement','Adresse complete','Téléphone','GPS exact'].forEach(f => qs.append('fields[]', f));
     if (offset) qs.set('offset', offset);
 
-    const res = await fetch(
+    const res = await fetchAvecRetry(
       `https://api.airtable.com/v0/${BASE_ID}/${TABLE_ID}?${qs}`,
       { headers: { Authorization: `Bearer ${apiKey}` } }
     );
@@ -817,6 +812,22 @@ function parseGps(str) {
 }
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// Fetch avec retry automatique sur erreur réseau (Failed to fetch)
+async function fetchAvecRetry(url, options = {}, maxRetries = 3, delayMs = 2000) {
+  let lastErr;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fetch(url, options);
+    } catch (e) {
+      lastErr = e;
+      // TypeError = erreur réseau (Failed to fetch, offline…)
+      if (!(e instanceof TypeError)) throw e; // erreur autre (CORS bloqué, etc.)
+      if (attempt < maxRetries) await sleep(delayMs * attempt);
+    }
+  }
+  throw lastErr;
+}
 
 async function safeJson(res, label){
   const text = await res.text();
@@ -1228,22 +1239,6 @@ document.getElementById('input-photo').addEventListener('change', e => {
   e.target.value = '';
 });
 
-document.getElementById('input-fichier').addEventListener('change', e => {
-  const files = Array.from(e.target.files);
-  if(!files.length) return;
-  let loaded = 0;
-  files.forEach(file => {
-    const reader = new FileReader();
-    reader.onload = ev => {
-      photos.push({ dataUrl: ev.target.result, name: file.name });
-      loaded++;
-      if(loaded === files.length){ renderPhotos(); updateBtnAnalyser(); }
-    };
-    reader.readAsDataURL(file);
-  });
-  e.target.value = '';
-});
-
 function deletePhoto(idx){
   photos.splice(idx, 1);
   renderPhotos();
@@ -1447,7 +1442,7 @@ async function fetchAirtableRecords(apiKey, fieldsFilter){
     if(fieldsFilter) fieldsFilter.forEach(f => qs.append('fields[]', f));
     qs.set('_t', Date.now()); // forcer pas de cache
     if(offset) qs.set('offset', offset);
-    const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${TBL_CLIENTS}?${qs}`,
+    const res = await fetchAvecRetry(`https://api.airtable.com/v0/${BASE_ID}/${TBL_CLIENTS}?${qs}`,
       {headers:{Authorization:`Bearer ${apiKey}`}});
     const body = await safeJson(res, 'Airtable-croisement');
     if(!res.ok){
